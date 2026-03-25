@@ -1,6 +1,7 @@
 package com.bridgelabz.employeepayrollapp.controller;
 
 import com.bridgelabz.employeepayrollapp.dto.EmployeePayrollDTO;
+import com.bridgelabz.employeepayrollapp.dto.ResponseDTO;
 import com.bridgelabz.employeepayrollapp.model.EmployeePayrollData;
 import com.bridgelabz.employeepayrollapp.service.IEmployeePayrollService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +16,11 @@ import java.util.List;
  * EmployeePayrollController is a REST Controller responsible for handling
  * all incoming HTTP requests for the Employee Payroll Service.
  *
- * Section 2 - UC2: The Controller no longer manages the Model directly.
- * All business logic and model management is delegated to the Service Layer
- * via Dependency Injection using the @Autowired annotation.
+ * Section 2 - UC3: All responses are now wrapped in a generic ResponseDTO
+ * to provide consistent, structured API responses to the client.
  *
- * This achieves a clean separation of concerns:
- * Controller -> handles HTTP, Service -> handles business logic.
+ * The Controller delegates all business logic to the Service Layer
+ * injected via @Autowired.
  *
  * Base URL: /employeepayrollservice
  *
@@ -31,47 +31,61 @@ import java.util.List;
 @RequestMapping("/employeepayrollservice")
 public class EmployeePayrollController {
 
-    // Dependency Injection of the Service Layer into the Controller
+    // Service layer injected via Spring Dependency Injection
     @Autowired
     private IEmployeePayrollService employeePayrollService;
 
-    /** Retrieves all employee payroll records from the service layer */
+    /** Retrieves all stored employee payroll records wrapped in ResponseDTO */
     @GetMapping("/")
-    public ResponseEntity<List<EmployeePayrollData>> getEmployeePayrollData() {
-        return new ResponseEntity<>(employeePayrollService.getEmployeePayrollData(), HttpStatus.OK);
+    public ResponseEntity<ResponseDTO<List<EmployeePayrollData>>> getEmployeePayrollData() {
+        List<EmployeePayrollData> empList = employeePayrollService.getEmployeePayrollData();
+        ResponseDTO<List<EmployeePayrollData>> response =
+                new ResponseDTO<>("All Employee Payroll Data fetched successfully!", empList);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    /** Retrieves a single employee payroll record by employee ID */
+    /** Retrieves a single employee payroll record by ID wrapped in ResponseDTO */
     @GetMapping("/get/{empId}")
-    public ResponseEntity<EmployeePayrollData> getEmployeePayrollDataById(@PathVariable int empId) {
-        return new ResponseEntity<>(employeePayrollService.getEmployeePayrollDataById(empId), HttpStatus.OK);
+    public ResponseEntity<ResponseDTO<EmployeePayrollData>> getEmployeePayrollDataById(
+            @PathVariable int empId) {
+        EmployeePayrollData data = employeePayrollService.getEmployeePayrollDataById(empId);
+        ResponseDTO<EmployeePayrollData> response =
+                new ResponseDTO<>("Employee data fetched for ID: " + empId, data);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    /** Accepts validated DTO and delegates employee creation to the service layer */
+    /** Creates a new employee record and returns the saved data wrapped in ResponseDTO */
     @PostMapping("/create")
-    public ResponseEntity<EmployeePayrollData> addEmployeePayrollData(
+    public ResponseEntity<ResponseDTO<EmployeePayrollData>> addEmployeePayrollData(
             @Valid @RequestBody EmployeePayrollDTO payrollDTO) {
-        return new ResponseEntity<>(
-                employeePayrollService.createEmployeePayrollData(payrollDTO), HttpStatus.CREATED);
+        EmployeePayrollData data = employeePayrollService.createEmployeePayrollData(payrollDTO);
+        ResponseDTO<EmployeePayrollData> response =
+                new ResponseDTO<>("Employee Payroll Data added successfully!", data);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    /** Accepts validated DTO and delegates employee update to the service layer */
+    /** Updates an existing employee record and returns the updated data in ResponseDTO */
     @PutMapping("/update/{empId}")
-    public ResponseEntity<EmployeePayrollData> updateEmployeePayrollData(
+    public ResponseEntity<ResponseDTO<EmployeePayrollData>> updateEmployeePayrollData(
             @PathVariable int empId,
             @Valid @RequestBody EmployeePayrollDTO payrollDTO) {
         EmployeePayrollData updatedData = employeePayrollService.updateEmployeePayrollData(empId, payrollDTO);
         if (updatedData != null) {
-            return new ResponseEntity<>(updatedData, HttpStatus.OK);
+            ResponseDTO<EmployeePayrollData> response =
+                    new ResponseDTO<>("Employee Payroll Data updated successfully!", updatedData);
+            return new ResponseEntity<>(response, HttpStatus.OK);
         }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        ResponseDTO<EmployeePayrollData> response =
+                new ResponseDTO<>("Employee with ID " + empId + " not found!", null);
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
-    /** Delegates employee deletion to the service layer by employee ID */
+    /** Deletes an employee record by ID and confirms deletion via ResponseDTO */
     @DeleteMapping("/delete/{empId}")
-    public ResponseEntity<String> deleteEmployeePayrollData(@PathVariable int empId) {
+    public ResponseEntity<ResponseDTO<String>> deleteEmployeePayrollData(@PathVariable int empId) {
         employeePayrollService.deleteEmployeePayrollData(empId);
-        return new ResponseEntity<>(
-                "Employee with ID " + empId + " deleted successfully!", HttpStatus.OK);
+        ResponseDTO<String> response =
+                new ResponseDTO<>("Employee with ID " + empId + " deleted successfully!", "Deleted");
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }
