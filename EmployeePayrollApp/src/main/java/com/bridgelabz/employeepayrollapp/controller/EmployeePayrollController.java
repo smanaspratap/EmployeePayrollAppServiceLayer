@@ -1,6 +1,12 @@
 package com.bridgelabz.employeepayrollapp.controller;
 
+import com.bridgelabz.employeepayrollapp.dto.EmployeePayrollDTO;
+import com.bridgelabz.employeepayrollapp.model.EmployeePayrollData;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,8 +14,11 @@ import java.util.List;
  * EmployeePayrollController is a REST Controller that handles all HTTP requests
  * for the Employee Payroll Service.
  *
- * Section 1 - UC2: Demonstrates basic REST API endpoints (GET, POST, PUT, DELETE)
- * without using DTO or Service Layer. All data is handled inline.
+ * Section 2 - UC1: Updated to use EmployeePayrollDTO for incoming requests
+ * and EmployeePayrollData (Model) for outgoing responses.
+ *
+ * The Controller is responsible ONLY for routing requests.
+ * Model creation is temporarily inside the controller (to be moved to Service in UC2).
  *
  * Base URL: /employeepayrollservice
  *
@@ -20,37 +29,57 @@ import java.util.List;
 @RequestMapping("/employeepayrollservice")
 public class EmployeePayrollController {
 
-    // Temporary in-memory storage for testing REST endpoints
-    private List<String> employeeList = new ArrayList<>();
+    // Temporary in-memory list acting as data store (will move to service layer)
+    private List<EmployeePayrollData> employeePayrollList = new ArrayList<>();
 
-    /** Returns a welcome message for the Employee Payroll Service */
+    /** Returns all employee payroll records */
     @GetMapping("/")
-    public String getServiceMessage() {
-        return "Welcome to Employee Payroll Service!";
+    public ResponseEntity<List<EmployeePayrollData>> getEmployeePayrollData() {
+        return new ResponseEntity<>(employeePayrollList, HttpStatus.OK);
     }
 
-    /** Returns an employee by their ID (index-based for now) */
-    @GetMapping("/get/{id}")
-    public String getEmployeeById(@PathVariable int id) {
-        return "Fetching Employee with ID: " + id;
+    /** Returns a single employee record by ID */
+    @GetMapping("/get/{empId}")
+    public ResponseEntity<EmployeePayrollData> getEmployeePayrollDataById(@PathVariable int empId) {
+        EmployeePayrollData data = employeePayrollList.stream()
+                .filter(e -> e.employeeId == empId)
+                .findFirst()
+                .orElse(null);
+        return new ResponseEntity<>(data, HttpStatus.OK);
     }
 
-    /** Creates a new employee record from request body */
+    /** Creates a new employee record using validated DTO input */
     @PostMapping("/create")
-    public String createEmployee(@RequestBody String employeeData) {
-        employeeList.add(employeeData);
-        return "Employee Created: " + employeeData;
+    public ResponseEntity<EmployeePayrollData> addEmployeePayrollData(
+            @Valid @RequestBody EmployeePayrollDTO payrollDTO) {
+        EmployeePayrollData data = new EmployeePayrollData(
+                employeePayrollList.size() + 1,
+                payrollDTO.name,
+                payrollDTO.salary
+        );
+        employeePayrollList.add(data);
+        return new ResponseEntity<>(data, HttpStatus.CREATED);
     }
 
-    /** Updates an existing employee record by ID */
-    @PutMapping("/update")
-    public String updateEmployee(@RequestBody String employeeData) {
-        return "Employee Updated: " + employeeData;
+    /** Updates an existing employee record by ID using DTO input */
+    @PutMapping("/update/{empId}")
+    public ResponseEntity<EmployeePayrollData> updateEmployeePayrollData(
+            @PathVariable int empId,
+            @Valid @RequestBody EmployeePayrollDTO payrollDTO) {
+        for (EmployeePayrollData emp : employeePayrollList) {
+            if (emp.employeeId == empId) {
+                emp.name = payrollDTO.name;
+                emp.salary = payrollDTO.salary;
+                return new ResponseEntity<>(emp, HttpStatus.OK);
+            }
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    /** Deletes an employee record by their ID */
-    @DeleteMapping("/delete/{id}")
-    public String deleteEmployee(@PathVariable int id) {
-        return "Employee with ID " + id + " deleted successfully!";
+    /** Deletes an employee record by ID */
+    @DeleteMapping("/delete/{empId}")
+    public ResponseEntity<String> deleteEmployeePayrollData(@PathVariable int empId) {
+        employeePayrollList.removeIf(e -> e.employeeId == empId);
+        return new ResponseEntity<>("Employee with ID " + empId + " deleted successfully!", HttpStatus.OK);
     }
 }
