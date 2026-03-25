@@ -5,19 +5,20 @@ import com.bridgelabz.employeepayrollapp.model.EmployeePayrollData;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 /**
  * EmployeePayrollService is the concrete implementation of IEmployeePayrollService.
  *
- * Section 2 - UC2: This service layer takes over Model management responsibility
- * from the Controller layer. The Controller now delegates all business logic
- * to this service class.
+ * Section 2 - UC3: The service layer now properly stores, retrieves, updates,
+ * and deletes Employee Payroll Data in an in-memory List.
  *
- * The @Service annotation marks this class as a Spring-managed bean,
- * allowing it to be injected into the Controller via @Autowired.
+ * An AtomicInteger is used for thread-safe ID generation.
+ * A Logger is added to trace all operations for debugging purposes.
  *
- * Note: Data is NOT yet being stored persistently. The list is reset
- * each time the application restarts. Persistence via DB is a future use case.
+ * Note: Data is stored in memory (List). On application restart, all data is lost.
+ * Persistent DB storage will be introduced in a future module.
  *
  * @author Manas
  * @version 1.0
@@ -25,52 +26,66 @@ import java.util.List;
 @Service
 public class EmployeePayrollService implements IEmployeePayrollService {
 
-    // In-memory list acting as temporary data store (UC2 - no DB yet)
+    // Logger for tracing service layer operations
+    private static final Logger log = Logger.getLogger(EmployeePayrollService.class.getName());
+
+    // Thread-safe auto-incrementing ID generator for employee records
+    private static final AtomicInteger idCounter = new AtomicInteger(0);
+
+    // In-memory list storing all employee payroll records during the session
     private List<EmployeePayrollData> employeePayrollList = new ArrayList<>();
 
-    /** Fetches and returns the entire list of employee payroll records */
+    /** Fetches all employee records from the in-memory list and logs the operation */
     @Override
     public List<EmployeePayrollData> getEmployeePayrollData() {
+        log.info("Fetching all employee payroll records. Total: " + employeePayrollList.size());
         return employeePayrollList;
     }
 
-    /** Finds and returns a single employee record by their ID */
+    /** Searches and returns a single employee record by ID, returns null if not found */
     @Override
     public EmployeePayrollData getEmployeePayrollDataById(int empId) {
+        log.info("Fetching employee with ID: " + empId);
         return employeePayrollList.stream()
                 .filter(e -> e.employeeId == empId)
                 .findFirst()
                 .orElse(null);
     }
 
-    /** Builds a new EmployeePayrollData object from DTO and adds it to the list */
+    /** Creates a new employee record from DTO, assigns a unique ID, and stores it in the list */
     @Override
     public EmployeePayrollData createEmployeePayrollData(EmployeePayrollDTO payrollDTO) {
-        EmployeePayrollData data = new EmployeePayrollData(
-                employeePayrollList.size() + 1,
-                payrollDTO.name,
-                payrollDTO.salary
-        );
+        int newId = idCounter.incrementAndGet();
+        EmployeePayrollData data = new EmployeePayrollData(newId, payrollDTO.name, payrollDTO.salary);
         employeePayrollList.add(data);
+        log.info("Created new employee: " + data);
         return data;
     }
 
-    /** Finds an employee by ID and updates their name and salary from the DTO */
+    /** Finds employee by ID, updates their name and salary from DTO, and returns updated record */
     @Override
     public EmployeePayrollData updateEmployeePayrollData(int empId, EmployeePayrollDTO payrollDTO) {
+        log.info("Updating employee with ID: " + empId);
         for (EmployeePayrollData emp : employeePayrollList) {
             if (emp.employeeId == empId) {
                 emp.name = payrollDTO.name;
                 emp.salary = payrollDTO.salary;
+                log.info("Updated employee: " + emp);
                 return emp;
             }
         }
+        log.warning("Employee with ID " + empId + " not found for update.");
         return null;
     }
 
-    /** Removes the employee record matching the given ID from the list */
+    /** Removes employee record matching the given ID from the in-memory list */
     @Override
     public void deleteEmployeePayrollData(int empId) {
-        employeePayrollList.removeIf(e -> e.employeeId == empId);
+        boolean removed = employeePayrollList.removeIf(e -> e.employeeId == empId);
+        if (removed) {
+            log.info("Deleted employee with ID: " + empId);
+        } else {
+            log.warning("Employee with ID " + empId + " not found for deletion.");
+        }
     }
 }
